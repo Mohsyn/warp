@@ -1,23 +1,34 @@
 name: Windows Build
 
 on:
+  push:
+    branches:
+      - '**'
   workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
+      - name: Prepare environment
+        uses: ./.github/actions/prepare_environment
         with:
-          version: "29.3"
-      - run: cargo build --release
+          target_os: windows
+          is_self_hosted: false
 
-      - uses: actions/upload-artifact@v4
+      - name: Build warp-oss
+        shell: pwsh
+        run: cargo build --bin warp-oss --features gui --release --locked
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload warp-oss.exe
+        uses: actions/upload-artifact@v4
         with:
-          name: warp-windows-x64
-          path: target/release/*.exe
+          name: warp-oss-windows
+          path: target/release/warp-oss.exe
