@@ -1,0 +1,79 @@
+name: Online Build
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-ai:
+    name: Test warp-ai crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        uses: ./.github/actions/prepare_environment
+        with:
+          target_os: linux
+          is_self_hosted: false
+
+      - name: Install cargo nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      - name: Run ai crate tests
+        run: cargo nextest run -p ai --lib
+
+  build-oss-windows:
+    name: Build warp-oss (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        uses: ./.github/actions/prepare_environment
+        with:
+          target_os: windows
+          is_self_hosted: false
+
+      - name: Build warp-oss
+        shell: pwsh
+        run: cargo build --bin warp-oss --features gui --release --locked
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload warp-oss.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: warp-oss-windows
+          path: target/release/warp-oss.exe
+
+  build-oss-linux:
+    name: Build warp-oss (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        uses: ./.github/actions/prepare_environment
+        with:
+          target_os: linux
+          is_self_hosted: false
+
+      - name: Build warp-oss
+        shell: bash
+        run: cargo build --bin warp-oss --features gui --release --locked
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload warp-oss
+        uses: actions/upload-artifact@v4
+        with:
+          name: warp-oss-linux
+          path: target/release/warp-oss
