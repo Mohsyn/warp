@@ -151,7 +151,7 @@ impl CustomEndpointModal {
                 ..Default::default()
             };
             let mut editor = EditorView::single_line(options, ctx);
-            editor.set_placeholder_text("Please include 'https://'", ctx);
+            editor.set_placeholder_text("e.g. https://api.example.com/v1 or http://127.0.0.1:11434", ctx);
             if let Some(ep) = endpoint {
                 editor.set_buffer_text(&ep.url, ctx);
             }

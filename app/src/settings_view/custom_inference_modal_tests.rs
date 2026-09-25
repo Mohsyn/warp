@@ -347,31 +347,27 @@ fn validate_url_accepts_https_with_host() {
 }
 
 #[test]
-fn validate_url_rejects_http() {
-    assert_eq!(
-        validate_url("http://api.example.com/v1"),
-        Err("URL must use HTTPS")
-    );
-    assert_eq!(
-        validate_url("http://example.com"),
-        Err("URL must use HTTPS")
-    );
+fn validate_url_accepts_local_http() {
+    assert!(validate_url("http://localhost:11434").is_ok());
+    assert!(validate_url("http://127.0.0.1:11434/v1").is_ok());
+    assert!(validate_url("http://10.0.0.1:8080").is_ok());
+    assert!(validate_url("http://192.168.1.1:11434").is_ok());
+    assert!(validate_url("http://[::1]:11434").is_ok());
+}
+
+#[test]
+fn validate_url_rejects_http_to_public_host() {
+    let error = Err("HTTP is only allowed for local endpoints");
+    assert_eq!(validate_url("http://api.example.com/v1"), error);
+    assert_eq!(validate_url("http://example.com"), error);
 }
 
 #[test]
 fn validate_url_rejects_ftp_and_other_schemes() {
-    assert_eq!(
-        validate_url("ftp://files.example.com"),
-        Err("URL must use HTTPS")
-    );
-    assert_eq!(
-        validate_url("file:///etc/passwd"),
-        Err("URL must use HTTPS")
-    );
-    assert_eq!(
-        validate_url("ws://socket.example.com"),
-        Err("URL must use HTTPS")
-    );
+    let error = Err("URL must use HTTP or HTTPS");
+    assert_eq!(validate_url("ftp://files.example.com"), error);
+    assert_eq!(validate_url("file:///etc/passwd"), error);
+    assert_eq!(validate_url("ws://socket.example.com"), error);
 }
 
 #[test]
@@ -396,27 +392,37 @@ fn validate_url_allows_whitespace_only() {
 }
 
 #[test]
-fn validate_url_rejects_localhost_and_private_ips() {
-    let error = Err("URL must not use a local or private host");
-    assert_eq!(validate_url("https://localhost:8080"), error);
-    assert_eq!(validate_url("https://127.0.0.1/v1"), error);
-    assert_eq!(validate_url("https://0.0.0.0/v1"), error);
-    assert_eq!(validate_url("https://10.0.0.1/v1"), error);
-    assert_eq!(validate_url("https://172.16.0.1/v1"), error);
-    assert_eq!(validate_url("https://192.168.0.1/v1"), error);
-    assert_eq!(validate_url("https://169.254.0.1/v1"), error);
-    assert_eq!(validate_url("https://[::1]/v1"), error);
-    assert_eq!(validate_url("https://[::]/v1"), error);
-    assert_eq!(validate_url("https://[fc00::1]/v1"), error);
-    assert_eq!(validate_url("https://[fe80::1]/v1"), error);
-    assert_eq!(validate_url("https://[::ffff:192.168.0.1]/v1"), error);
+fn validate_url_accepts_https_to_local_and_private_ips() {
+    // HTTPS is allowed for all hosts, including local/private ones.
+    assert!(validate_url("https://localhost:8080").is_ok());
+    assert!(validate_url("https://127.0.0.1/v1").is_ok());
+    assert!(validate_url("https://0.0.0.0/v1").is_ok());
+    assert!(validate_url("https://10.0.0.1/v1").is_ok());
+    assert!(validate_url("https://172.16.0.1/v1").is_ok());
+    assert!(validate_url("https://192.168.0.1/v1").is_ok());
+    assert!(validate_url("https://169.254.0.1/v1").is_ok());
+    assert!(validate_url("https://[::1]/v1").is_ok());
+    assert!(validate_url("https://[::]/v1").is_ok());
+    assert!(validate_url("https://[fc00::1]/v1").is_ok());
+    assert!(validate_url("https://[fe80::1]/v1").is_ok());
+    assert!(validate_url("https://[::ffff:192.168.0.1]/v1").is_ok());
 }
 
 #[test]
-fn endpoint_form_valid_rejects_invalid_current_url() {
+fn endpoint_form_valid_rejects_http_to_public_host() {
     assert!(!is_endpoint_form_valid(
         "Endpoint",
         "http://api.example.com/v1",
+        "key",
+        true
+    ));
+}
+
+#[test]
+fn endpoint_form_valid_accepts_local_http_url() {
+    assert!(is_endpoint_form_valid(
+        "Ollama",
+        "http://localhost:11434",
         "key",
         true
     ));

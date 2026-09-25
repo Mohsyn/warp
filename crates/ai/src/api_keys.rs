@@ -335,43 +335,46 @@ impl schemars::JsonSchema for CustomEndpointDefinitions {
 
 pub fn validate_custom_endpoint_url(value: &str) -> Result<(), &'static str> {
     let parsed = Url::parse(value).map_err(|_| "Invalid URL")?;
-    if parsed.scheme() != "https" {
-        return Err("URL must use HTTPS");
+    let scheme = parsed.scheme();
+    if scheme != "https" && scheme != "http" {
+        return Err("URL must use HTTP or HTTPS");
     }
     let Some(host) = parsed.host_str().filter(|host| !host.is_empty()) else {
         return Err("URL must include a host");
     };
-    if is_restricted_host(host) {
-        return Err("URL must not use a local or private host");
+    // HTTP sends credentials in cleartext, so only allow it for local/private
+    // hosts (e.g. Ollama on localhost). HTTPS is always allowed.
+    if scheme == "http" && !is_local_host(host) {
+        return Err("HTTP is only allowed for local endpoints");
     }
     Ok(())
 }
 
-fn is_restricted_host(host: &str) -> bool {
+fn is_local_host(host: &str) -> bool {
     let host = host
         .strip_prefix('[')
         .and_then(|host| host.strip_suffix(']'))
         .unwrap_or(host);
-    host.eq_ignore_ascii_case("localhost") || host.parse::<IpAddr>().is_ok_and(is_restricted_ip)
+    host.eq_ignore_ascii_case("localhost") || host.parse::<IpAddr>().is_ok_and(is_local_ip)
 }
 
-fn is_restricted_ip(ip: IpAddr) -> bool {
+fn is_local_ip(ip: IpAddr) -> bool {
     match ip {
-        IpAddr::V4(ip) => is_restricted_ipv4(ip),
-        IpAddr::V6(ip) => is_restricted_ipv6(ip),
+        IpAddr::V4(ip) => is_local_ipv4(ip),
+        IpAddr::V6(ip) => is_local_ipv6(ip),
     }
 }
 
-fn is_restricted_ipv4(ip: Ipv4Addr) -> bool {
+fn is_local_ipv4(ip: Ipv4Addr) -> bool {
     ip.is_loopback() || ip.is_unspecified() || ip.is_private() || ip.is_link_local()
 }
 
-fn is_restricted_ipv6(ip: Ipv6Addr) -> bool {
+fn is_local_ipv6(ip: Ipv6Addr) -> bool {
     ip.is_loopback()
         || ip.is_unspecified()
         || ip.segments()[0] & 0xfe00 == 0xfc00
         || ip.segments()[0] & 0xffc0 == 0xfe80
-        || ip.to_ipv4_mapped().is_some_and(is_restricted_ipv4)
+        || ip.to_ipv4_mapped().is_some_and(is_local_ipv4)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, schemars::JsonSchema)]

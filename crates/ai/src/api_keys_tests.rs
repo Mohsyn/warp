@@ -267,22 +267,47 @@ fn custom_endpoint_definitions_reject_duplicate_model_config_keys() {
 }
 
 #[test]
-fn custom_endpoint_url_requires_public_https() {
+fn custom_endpoint_url_allows_https_and_local_http() {
+    // HTTPS is allowed for any host.
     for valid in [
         "https://api.example.com/v1",
         "https://openrouter.ai/api/v1",
         "https://8.8.8.8/v1",
-    ] {
-        assert_eq!(validate_custom_endpoint_url(valid), Ok(()));
-    }
-    for invalid in [
-        "http://api.example.com/v1",
         "https://localhost:8080",
         "https://127.0.0.1/v1",
         "https://10.0.0.1/v1",
         "https://[::1]/v1",
-        "not a url",
     ] {
+        assert_eq!(validate_custom_endpoint_url(valid), Ok(()));
+    }
+    // HTTP is allowed for local/private hosts (e.g. Ollama, LM Studio).
+    for valid in [
+        "http://localhost:11434",
+        "http://127.0.0.1:11434/v1",
+        "http://10.0.0.1:8080",
+        "http://192.168.1.1:11434",
+        "http://[::1]:11434",
+    ] {
+        assert_eq!(validate_custom_endpoint_url(valid), Ok(()), "{valid} should be accepted");
+    }
+}
+
+#[test]
+fn custom_endpoint_url_rejects_http_to_public_host() {
+    for invalid in [
+        "http://api.example.com/v1",
+        "http://example.com",
+    ] {
+        assert!(
+            validate_custom_endpoint_url(invalid).is_err(),
+            "{invalid} should be rejected"
+        );
+    }
+}
+
+#[test]
+fn custom_endpoint_url_rejects_other_schemes() {
+    for invalid in ["ftp://files.example.com", "not a url"] {
         assert!(
             validate_custom_endpoint_url(invalid).is_err(),
             "{invalid} should be rejected"
