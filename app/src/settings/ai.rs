@@ -2249,14 +2249,26 @@ impl AISettings {
     }
 
     pub fn is_any_ai_enabled(&self, app: &AppContext) -> bool {
-        // Disable AI for anonymous and logged-out users.
+        if !*self.is_any_ai_enabled
+            || self.is_ai_disabled_due_to_remote_session_org_policy(app)
+        {
+            return false;
+        }
+
+        // Disable AI for anonymous and logged-out users, unless a local inference
+        // endpoint is configured to serve requests without a Warp account.
         let is_anonymous_or_logged_out = AuthStateProvider::as_ref(app)
             .get()
             .is_anonymous_or_logged_out();
 
-        *self.is_any_ai_enabled
-            && !is_anonymous_or_logged_out
-            && !self.is_ai_disabled_due_to_remote_session_org_policy(app)
+        !is_anonymous_or_logged_out || self.is_offline_custom_endpoint_ai_available()
+    }
+
+    /// Whether AI can be served without a Warp account because the user configured
+    /// at least one custom inference endpoint. Custom endpoint requests go directly
+    /// to the user-supplied base URL, so they never touch the Warp server.
+    fn is_offline_custom_endpoint_ai_available(&self) -> bool {
+        FeatureFlag::OfflineCustomEndpointAI.is_enabled() && !self.custom_endpoints.is_empty()
     }
 
     /// Returns whether conversation history is available for the current

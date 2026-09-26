@@ -1,6 +1,12 @@
+use ::ai::api_keys::CustomEndpointDefinition;
+use ::ai::api_keys::CustomEndpointDefinitions;
+use ::ai::api_keys::CustomEndpointId;
+use ::ai::api_keys::CustomEndpointModel;
+use ::ai::api_keys::CustomEndpointSchema;
 use chrono::Utc;
 use settings::schema::SettingSchemaEntry;
 use settings::{Setting, SettingSurfaces, SettingsMode};
+use warp_core::features::FeatureFlag;
 use warp_graphql::scalars::time::ServerTimestamp;
 use warpui::{App, SingletonEntity};
 
@@ -1020,6 +1026,79 @@ fn ai_autodetection_setting_can_be_toggled_on_and_off() {
         AISettings::handle(&app).read(&app, |settings, ctx| {
             assert!(!*settings.ai_autodetection_enabled_internal.value());
             assert!(!settings.is_ai_autodetection_enabled(ctx));
+        });
+    });
+}
+
+/// A one-model custom endpoint definition standing in for a user-configured
+/// local inference server (e.g. Ollama or llama.cpp).
+fn custom_endpoint_definitions_for_test() -> CustomEndpointDefinitions {
+    let mut definitions = CustomEndpointDefinitions::default();
+    definitions
+        .insert(
+            CustomEndpointId::generated(),
+            CustomEndpointDefinition {
+                name: "Local".to_owned(),
+                base_url: "http://localhost:11434/v1".to_owned(),
+                schema: CustomEndpointSchema::default(),
+                models: vec![CustomEndpointModel {
+                    name: "model".to_owned(),
+                    alias: None,
+                    config_key: "config-key".to_owned(),
+                }],
+            },
+        )
+        .unwrap();
+    definitions
+}
+
+#[test]
+fn ai_stays_disabled_when_logged_out_without_custom_endpoints() {
+    App::test((), |mut app| async move {
+        initialize_settings_for_tests(&mut app);
+        add_ai_enablement_dependencies_for_test(&mut app);
+
+        AISettings::handle(&app).read(&app, |settings, ctx| {
+            assert!(!settings.is_any_ai_enabled(ctx));
+        });
+    });
+}
+
+#[test]
+fn ai_is_enabled_when_logged_out_with_a_custom_endpoint_configured() {
+    let _flag = FeatureFlag::OfflineCustomEndpointAI.override_enabled(true);
+    App::test((), |mut app| async move {
+        initialize_settings_for_tests(&mut app);
+        add_ai_enablement_dependencies_for_test(&mut app);
+        AISettings::handle(&app)
+            .update(&mut app, |settings, ctx| {
+                settings
+                    .custom_endpoints
+                    .load_value(custom_endpoint_definitions_for_test(), true, ctx)
+            })
+            .unwrap();
+
+        AISettings::handle(&app).read(&app, |settings, ctx| {
+            assert!(settings.is_any_ai_enabled(ctx));
+        });
+    });
+}
+
+#[test]
+fn ai_stays_disabled_for_logged_out_user_when_the_flag_is_off() {
+    App::test((), |mut app| async move {
+        initialize_settings_for_tests(&mut app);
+        add_ai_enablement_dependencies_for_test(&mut app);
+        AISettings::handle(&app)
+            .update(&mut app, |settings, ctx| {
+                settings
+                    .custom_endpoints
+                    .load_value(custom_endpoint_definitions_for_test(), true, ctx)
+            })
+            .unwrap();
+
+        AISettings::handle(&app).read(&app, |settings, ctx| {
+            assert!(!settings.is_any_ai_enabled(ctx));
         });
     });
 }

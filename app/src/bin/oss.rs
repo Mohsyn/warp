@@ -24,6 +24,10 @@ fn main() -> Result<()> {
     if cfg!(debug_assertions) {
         state = state.with_additional_features(warp_core::features::DEBUG_FLAGS);
     }
+    // The OSS build cannot sign in to warp.dev, so let AI surfaces work whenever
+    // the user has configured a custom inference endpoint.
+    state = state
+        .with_additional_features(&[warp_core::features::FeatureFlag::OfflineCustomEndpointAI]);
     ChannelState::set(state);
 
     warp::run()

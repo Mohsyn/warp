@@ -996,6 +996,13 @@ pub enum FeatureFlag {
     /// replace inline computer-use screenshot bytes with references to
     /// Warp-managed object storage.
     StoredScreenshots,
+
+    /// Allows AI surfaces to be enabled for builds that cannot authenticate
+    /// against warp.dev, as long as the user has configured at least one custom
+    /// inference endpoint. Custom endpoint requests are served entirely by the
+    /// user-supplied base URL, so no Warp account is required for them to work.
+    /// Cloud-only AI (Oz, conversation history, billing) remains unavailable.
+    OfflineCustomEndpointAI,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
