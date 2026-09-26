@@ -7,6 +7,8 @@
 </p>
 
 <p align="center">
+    Made this fork to remove https from local inference. it seems that warp is hardcoded to use warp.dev to receive responses.
+    aborted
   <a href="https://www.warp.dev">Website</a>
   ·
   <a href="https://www.warp.dev/code">Code</a>
